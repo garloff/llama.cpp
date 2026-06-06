@@ -1896,5 +1896,11 @@ GGML_TABLE_BEGIN(uint32_t, iq1s_grid_gpu, NGRID_IQ1S)
 GGML_TABLE_END()
 #endif
 
+// KG: This is 1 in the original code. With 0.49f, we'd create the lowest chance to cutoff second
+// and third largest value, while overestimating the max by 0.49/128 = 4 permille. 0 matches how
+// we treat lower bit quants. As we're storing one float per 32 weights, this is unlikley to hit.
+// so 0 seems best.
+#define Q8_0_BIAS 0
+
 #endif // GGML_COMMON_IMPL
 #endif // GGML_COMMON_IMPL

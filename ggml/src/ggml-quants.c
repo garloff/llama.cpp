@@ -97,11 +97,11 @@ void quantize_row_q4_0_ref(const float * GGML_RESTRICT x, block_q4_0 * GGML_REST
         y[i].d = GGML_FP32_TO_FP16(d);
 
         for (int j = 0; j < qk/2; ++j) {
-            const float x0 = x[i*qk + 0    + j]*id;
-            const float x1 = x[i*qk + qk/2 + j]*id;
+            const float x0 = x[i*qk + 0    + j]*id;	// -8 .. 8
+            const float x1 = x[i*qk + qk/2 + j]*id;	// dito
 
-            const uint8_t xi0 = MIN(15, (int8_t)(x0 + 8.5f));
-            const uint8_t xi1 = MIN(15, (int8_t)(x1 + 8.5f));
+            const uint8_t xi0 = MIN(15, (int8_t)(x0 + 8.5f));	// -> 0.5 .. 16.5
+            const uint8_t xi1 = MIN(15, (int8_t)(x1 + 8.5f));	// -> 0 .. 15 (with 0 underfilled and 15 overfilled, clipping -MAX to 7/8 of it)
 
             y[i].qs[j]  = xi0;
             y[i].qs[j] |= xi1 << 4;
@@ -241,13 +241,17 @@ void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_REST
 
     for (int i = 0; i < nb; i++) {
         float amax = 0.0f; // absolute max
+        float vmax = 0.0f;
 
         for (int j = 0; j < QK8_0; j++) {
             const float v = x[i*QK8_0 + j];
-            amax = MAX(amax, fabsf(v));
+            if (fabsf(v) > amax) {
+                amax = fabsf(v);
+                vmax = v;
+            }
         }
 
-        const float d = amax / ((1 << 7) - 1);
+        const float d = vmax / -((1 << 7) - Q8_0_BIAS);	// 127.0 . 128.0
         const float id = d ? 1.0f/d : 0.0f;
 
         y[i].d = GGML_FP32_TO_FP16(d);
@@ -255,7 +259,7 @@ void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_REST
         for (int j = 0; j < QK8_0; ++j) {
             const float x0 = x[i*QK8_0 + j]*id;
 
-            y[i].qs[j] = roundf(x0);
+            y[i].qs[j] = MIN(127,roundf(x0));
         }
     }
 }

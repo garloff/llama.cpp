@@ -2,6 +2,9 @@
 
 #include "types.glsl"
 
+// KG: Could be set to 0.1f or 0.49f or 1
+#define Q8_0_BIAS 0
+
 #if defined(SET_ROWS) && QUANT_K == 1
 layout(local_size_x = 512, local_size_y = 1, local_size_z = 1) in;
 const uint BLOCK_SIZE = 512;
@@ -164,21 +167,24 @@ void quantize(uint dst_idx, uint src_idx)
 void quantize(uint dst_idx, uint src_idx)
 {
     float amax = 0.0; // absolute max
+    float vmax = 0.0; // max
 
     [[unroll]] for (int j = 0; j < QUANT_K_Q8_0; j++) {
         const float v = data_s[src_idx + j];
-        amax = max(amax, abs(v));
+        if (amax < abs(v)) {
+            amax = abs(v);
+            vmax = v;
+        }
     }
 
-    const float d = amax / ((1 << 7) - 1);
+    const float d = vmax / -((1 << 7) - Q8_0_BIAS);
     const float id = (d != 0.0) ? 1.0/d : 0.0;
 
     data_q[dst_idx].d = float16_t(d);
 
     [[unroll]] for (int j = 0; j < QUANT_K_Q8_0; ++j) {
         const float x0 = data_s[src_idx + j]*id;
-
-        data_q[dst_idx].qs[j] = int8_t(round(x0));
+        data_q[dst_idx].qs[j] = int8_t(min(127, round(x0)));
     }
 }
 #endif
