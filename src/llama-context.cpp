@@ -1692,7 +1692,13 @@ int llama_context::decode(const llama_batch & batch_inp) {
     const auto & hparams = model.hparams;
 
     const int64_t n_vocab = vocab.n_tokens();
-    const int64_t n_embd  = hparams.n_embd_inp();
+    //const int64_t n_embd  = hparams.n_embd_inp();
+    // n_embd_inp() returns the encoder input size (e.g. 3*hidden for EAGLE3).
+    // For decoder batches with embeddings (e.g. EAGLE3 decoder), the batch
+    // stride is the model's own hidden size, not the encoder input size.
+    const int64_t n_embd = (batch_inp.embd != nullptr && hparams.n_embd_inp() != hparams.n_embd)
+        ? hparams.n_embd
+        : hparams.n_embd_inp();
 
     // when computing embeddings, all tokens are output
     const bool output_all   = cparams.embeddings;
