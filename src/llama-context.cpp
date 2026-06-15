@@ -1692,11 +1692,10 @@ int llama_context::decode(const llama_batch & batch_inp) {
     const auto & hparams = model.hparams;
 
     const int64_t n_vocab = vocab.n_tokens();
-    //const int64_t n_embd  = hparams.n_embd_inp();
-    // n_embd_inp() returns the encoder input size (e.g. 3*hidden for EAGLE3).
-    // For decoder batches with embeddings (e.g. EAGLE3 decoder), the batch
-    // stride is the model's own hidden size, not the encoder input size.
-    const int64_t n_embd = (batch_inp.embd != nullptr && hparams.n_embd_inp() != hparams.n_embd)
+    // n_embd_inp() returns the encoder concatenated input size for EAGLE3 (e.g. 3*hidden).
+    // The EAGLE3 decoder batch uses batch.embd with stride n_embd (the model's own hidden
+    // size), not n_embd_inp(). All other archs including MTP use n_embd_inp() correctly.
+    const int64_t n_embd = (model.arch == LLM_ARCH_EAGLE3 && batch_inp.embd != nullptr)
         ? hparams.n_embd
         : hparams.n_embd_inp();
 
