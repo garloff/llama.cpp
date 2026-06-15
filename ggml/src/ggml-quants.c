@@ -249,7 +249,7 @@ void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_REST
             nmax = MIN(nmax, v);
         }
         // Ensure pmax is the absolute largest by swapping if needed
-        if (fabs(pmax) < fabs(nmax)) {
+        if (fabsf(pmax) < fabsf(nmax)) {
             const float tmp = pmax;
             pmax = nmax;
             nmax = tmp;
