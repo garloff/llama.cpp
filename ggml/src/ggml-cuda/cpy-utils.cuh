@@ -135,25 +135,35 @@ static __device__ void quantize_f32_q5_1_block(const float * __restrict__ x, blo
 }
 
 static __device__ void quantize_f32_q8_0_block(const float * __restrict__ x, block_q8_0 * __restrict__ y) {
-    float amax = 0.0f; // absolute max
-    float vmax = 0.0f; // real max
-
+    float pmax = 0.0f; // pos max
+    float nmax = 0.0f; // neg max
+    // Find largest pos and neg values
     for (int j = 0; j < QK8_0; j++) {
         const float v = x[j];
-        if (fabsf(v) > amax) {
-            amax = fabsf(v);
-            vmax = v;
-        }
+        pmax = max(pmax, v);
+        nmax = min(nmax, v);
     }
-
-    const float d = vmax / -((1 << 7) - Q8_0_BIAS);	// 127.0 .. 128.0
-    const float id = d ? 1.0f/d : 0.0f;
+    // Ensure pmax is the absolute largest by swapping if needed
+    if (fabs(pmax) < fabs(nmax)) {
+        const float tmp = pmax;
+        pmax = nmax;
+        nmax = tmp;
+    }
+    // Scale pmax to become -128 ...
+    float d = pmax/-128;
+    float id = d? 1.0f/d: 0.0f;
+    // ... except if that overflows nmax
+    // then scale nmax to be +127
+    if (roundf(nmax * id) > 127) {
+        d = nmax/127;
+        id = 1.0f/d;
+    }
 
     y->d = d;
 
     for (int j = 0; j < QK8_0; ++j) {
         const float x0 = x[j]*id;
-        y->qs[j] = min(127, roundf(x0));
+        y->qs[j] = roundf(x0);
     }
 }
 
