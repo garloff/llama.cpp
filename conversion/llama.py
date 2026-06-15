@@ -47,6 +47,7 @@ class LlamaModel(TextModel):
         if "draft_vocab_size" in self.hparams and self.hparams["num_hidden_layers"] == 1:
             self.is_eagle3 = True
             self.model_arch = gguf.MODEL_ARCH.EAGLE3
+            self.undo_permute = False
             logger.info("Detected EAGLE-3 draft model, switching to EAGLE3 architecture")
             # Re-initialize tensor_map with eagle3 architecture
             self.tensor_map = gguf.get_tensor_name_map(self.model_arch, self.block_count)
@@ -219,6 +220,9 @@ class LlamaModel(TextModel):
         # eagle3: special tensors that bypass standard llama mapping
         if getattr(self, 'is_eagle3', False):
             if name == "fc.weight":
+                yield (name, data_torch)
+                return
+            if name == "input_norm.weight":
                 yield (name, data_torch)
                 return
             if name == "d2t":
